@@ -1,0 +1,120 @@
+import socket
+import time
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def version():
+	version="ver270319"
+	#Last change : decode req
+	return version;
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def connectToJDSUforced(ip):
+	rcport=8006
+	# Find running applications
+	s5800r= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s5800r.connect((ip, rcport))
+	s5800r.send(b"*REM VISIBLE FULL\n")
+	apps=reqData(s5800r,ip,":SYSTem:APPLication:CAPPLications?")
+	apps=apps.split(",")
+	app1=""
+	app2=""
+	# Define the applications per port
+	if len(apps) > 1 :
+		if "101" in apps[0]:
+			app1=apps[0]
+			app2=apps[1]
+		else:
+			app1=apps[1]
+			app2=apps[0]		
+	elif len(apps)==1:
+		app1=apps[0]
+	else:
+		pass
+		#print("No application running")
+	noofapps=len(apps)	
+	return s5800r,apps,app1,app2,noofapps;
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def connectToJDSU(ip):
+	tcpport=8000
+	side = "BOTH";
+	slice = "BASE";
+	#Find module port
+	s5800t= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s5800t.connect((ip, tcpport))
+	s5800t.send(b"*REM\n")
+	time.sleep(2)
+	modulesPort=(reqData(s5800t,ip,"MOD:FUNC:PORT? BOTH,BASE,\"BERT\""))
+	modulesPort=int(modulesPort)
+	time.sleep(2)
+	# Find remote command port
+	s5800m = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s5800m.connect((ip, modulesPort))
+	s5800m.send(b"*REM\n")
+	rcport=int(reqData(s5800m,ip,":SYST:FUNC:PORT? " + side + "," + slice + ",\"BERT\""))
+	#print(str(rcport))
+	#rcport=8006 #until the new firmware reports correctly
+	time.sleep(2)
+	# Find running applications
+	s5800r= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s5800r.connect((ip, rcport))
+	s5800r.send(b"*REM VISIBLE FULL\n")
+	apps=reqData(s5800r,ip,":SYSTem:APPLication:CAPPLications?")
+	apps=apps.split(",")
+	app1=""
+	app2=""
+	# Define the applications per port
+	if len(apps) > 1 :
+		if "101" in apps[0]:
+			app1=apps[0]
+			app2=apps[1]
+		else:
+			app1=apps[1]
+			app2=apps[0]		
+	elif len(apps)==1:
+		app1=apps[0]
+	else:
+		print("No application running")
+	noofapps=len(apps)	
+	s5800m.close()
+	s5800t.close()
+	return s5800r,apps,app1,app2,noofapps;
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def selectApp(s5800r,ip,app):
+	app=str(app)
+	cmd=":SYSTem:APPLication:SELect " + app + "\n"
+	s5800r.send(cmd.encode())	
+	time.sleep(1)
+	s5800r.send(b":SESSion:CREate\n")
+	time.sleep(1)
+	s5800r.send(b":SESSion:START\n")
+	time.sleep(1)
+	s5800r.send(b":INITiate\n")
+	time.sleep(1)
+	return;
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def restartPort(s5800r,ip):
+	command=":ABORT\n"
+	s5800r.send(command.encode())
+	time.sleep(1)
+	command=":INITiate\n"
+	s5800r.send(command.encode())
+	return;
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+def sendCmd(s5800r,ip,cmd):
+	# Returns str, get str param
+	cmd=cmd+"\n"
+	s5800r.send(cmd.encode())
+	cmd2=":SYSTem:ERRor?"
+	err=reqData(s5800r,ip,cmd2)
+	if "Execution error" in err:
+		print(err + " executing command : " + cmd)
+	return err;
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def reqData(s5800r,ip,cmd,timeout=60):
+	# Returns str type, get str param
+	cmd=cmd+'\n'
+	s5800r.settimeout(timeout)
+	s5800r.send(cmd.encode())
+	data=s5800r.recv(1024)
+	data=data.decode()
+	data=data.rstrip('\n')
+	return data; 
