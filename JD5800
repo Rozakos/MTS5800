@@ -1,0 +1,132 @@
+import socket
+import time
+#####from gk import jd5800
+
+
+class jdsu:
+	def __init__(self, ip):
+		self.ip = ip
+		# Minor fix for app2
+		self.version="v 20-05-2019"
+		self.soc_r=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		rcport=8006
+		self.soc_r.connect((self.ip, rcport))
+		cmd="*REM VISIBLE FULL"
+		self.sendCmd(cmd)
+		cmd=":SYSTEM:APPLICATION:CAPPLICATIONS?"
+		self.apps=self.reqData(cmd,30)
+		self.apps=self.apps.split(",")
+		# Define the applications per por
+		if len(self.apps) > 1 :
+			if "101" in self.apps[0]:
+				self.app1=self.apps[0]
+				self.app2=self.apps[1]
+			else:
+				self.app1=self.apps[1]
+				self.app2=self.apps[0]		
+		elif len(self.apps)==1:
+			self.app1=self.apps[0]
+			self.app2=''
+		else:
+			self.app1=self.app2=''
+			print(" -- No application running")
+		self.noOfApps=len(self.apps)
+	def reqData(self,cmd,timeout=60):
+		# Gets str type, returns str param
+		cmd=cmd+'\n'
+		self.soc_r.settimeout(timeout)
+		# Protect from timeout
+		try:
+			self.soc_r.send(cmd.encode())
+			data=self.soc_r.recv(1024)
+			data=data.decode()
+			data=data.rstrip('\n')
+			data=data.strip('"')
+		except:
+			print("  ! Timeout on request " + cmd.rstrip('\n'))
+			data='99997'
+		if data=='9.91e+37':
+			print("  ! Result not applicable")
+			data='99998'
+		elif data=='9.9e+37':
+			print("  ! Result overrange")
+			data='99999'
+		elif data=='-9.9e+37':
+			print("  ! Result underrange")	
+			data='-99999'
+		return data; 
+	def sendCmd(self,cmd):
+		# Returns str, get str param
+		cmd=cmd+"\n"
+		self.soc_r.send(cmd.encode())
+		cmd2=":SYSTEM:ERROR?"
+		err=self.reqData(cmd2)
+		try:
+			if int(err[0]) !=0:
+				print("  !", err)
+		except:
+			pass
+		return err;
+	def close(self):
+		self.soc_r.close()
+	def selectApp(self,app):
+		cmd=":SYSTEM:APPLICATION:SELECT " + str(app)
+		err=self.sendCmd(cmd)	
+		time.sleep(1)
+		cmd=":SESSION:CREATE"
+		self.sendCmd(cmd)	
+		time.sleep(1)
+		cmd=":SESSION:START"
+		self.sendCmd(cmd)
+		time.sleep(1)
+		cmd=":INITIATE"
+		self.sendCmd(cmd)
+		time.sleep(1)
+		return;
+	def restartPort(self):
+		cmd=":ABORT"
+		self.sendCmd(cmd)
+		time.sleep(1)
+		cmd=":INITIATE"
+		self.sendCmd(cmd)
+		return;
+	def toggleTraffic(self):
+		cmd=":SOURCE:MAC:TRAFFIC"
+		jd.sendCmd(cmd)
+		cmd=":SOURCE:MAC:MSTREAM:TRAFFIC"
+		jd.sendCmd(cmd)
+	def reboot(self,delay):
+		tcpport=8000
+		socreb=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		socreb.connect((self.ip, tcpport))
+		socreb.sendCmd("*REM VISIBLE FULL")
+		time.sleep(delay)
+		socreb.sendCmd(":SYSTEM:REBOOT")
+	def toggleTraffic(self):
+		cmd=":SOURCE:MAC:TRAFfIC"
+		jd.sendCmd(cmd)
+		cmd=":SOURCE:MAC:MSTREAM:TRAFFIC"
+		jd.sendCmd(cmd)
+	def reboot(self):
+		tcpport=8000
+		socreb=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		socreb.connect((self.ip, tcpport))
+		socreb.sendCmd("*REM VISIBLE FULL")
+		time.sleep(delay)
+		socreb.sendCmd(":SYSTEM:REBOOT")
+
+#testerip='172.28.69.100'
+##jd=jd5800.jdsu(testerip)
+#jd=jdsu(testerip)
+#print(jd.ip)
+#print(jd.app2)
+#print(jd.apps)
+#print(jd.apps[0])
+#print(jd.version)
+#print(jd.reqData(":SYSTem:APPLication:CAPPLications?",10))
+#print(jd.noOfApps)
+#jd.selectApp(jd.app1)
+#time.sleep(3)
+#jd.restartPort()
+#time.sleep(2)
+#jd.close()
